@@ -48,6 +48,23 @@
         const supabase = supabase.createClient(supabaseUrl, supabaseKey);
         let isAdmin = false;
 
+        function toggleLogin() {
+            document.getElementById("adminLogin").classList.toggle("hidden");
+        }
+
+        function handleLogin() {
+            let password = document.getElementById("adminPassword").value;
+            if (password === "SCP07!") {
+                isAdmin = true;
+                document.getElementById("adminLogin").classList.add("hidden");
+                document.getElementById("adminPanel").classList.remove("hidden");
+                fetchMaterials();
+                fetchLoans();
+            } else {
+                alert("Falsches Passwort!");
+            }
+        }
+
         async function fetchMaterials() {
             let { data, error } = await supabase.from("materials").select("*");
             if (error) console.error(error);
