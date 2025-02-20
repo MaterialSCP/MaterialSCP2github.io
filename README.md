@@ -25,22 +25,31 @@
         <input type="number" id="materialQuantity" placeholder="Menge" min="1" value="1">
         <button onclick="addMaterial()">Hinzufügen</button>
         <h2>Material verwalten</h2>
-        <ul id="availableMaterials"></ul>
+        <ul id="availableMaterials" style="list-style-type: none;"></ul>
     </div>
     <h2>Materialanfrage</h2>
-    <select id="materialSelect"></select>
+    <select id="materialSelect">
+        <option value="" disabled selected>Wähle ein Material</option>
+    </select>
     <input type="number" id="borrowQuantity" placeholder="Menge" min="1" value="1">
     <input type="text" id="borrower" placeholder="Entleiher">
     <input type="date" id="loanDate">
     <input type="date" id="returnDate">
     <button onclick="requestItem()">Anfrage senden</button>
+    <h2>Verfügbare Materialien</h2>
+    <ul id="publicAvailableMaterials" style="list-style-type: none;"></ul>
     <h2>Verliehenes Material</h2>
     <table id="loanedTable"></table>
 
     <script>
         let isAdmin = false;
-        let availableMaterials = JSON.parse(localStorage.getItem("availableMaterials")) || {};
-        let loanedItems = JSON.parse(localStorage.getItem("loanedItems")) || [];
+        let availableMaterials = JSON.parse(localStorage.getItem('availableMaterials')) || {};
+        let loanedItems = JSON.parse(localStorage.getItem('loanedItems')) || [];
+
+        function saveData() {
+            localStorage.setItem('availableMaterials', JSON.stringify(availableMaterials));
+            localStorage.setItem('loanedItems', JSON.stringify(loanedItems));
+        }
 
         function toggleLogin() {
             document.getElementById("adminLogin").classList.toggle("hidden");
@@ -51,6 +60,7 @@
             if (password === "SCP07!") {
                 isAdmin = true;
                 document.getElementById("adminPanel").classList.remove("hidden");
+                updateLoanedList();
             } else {
                 alert("Falsches Passwort");
             }
@@ -61,36 +71,8 @@
             let quantity = parseInt(document.getElementById("materialQuantity").value);
             if (!material || quantity < 1) return;
             availableMaterials[material] = (availableMaterials[material] || 0) + quantity;
-            localStorage.setItem("availableMaterials", JSON.stringify(availableMaterials));
+            saveData();
             updateMaterialList();
-        }
-
-        function removeMaterial(material) {
-            if (availableMaterials[material] > 1) {
-                availableMaterials[material]--;
-            } else {
-                delete availableMaterials[material];
-            }
-            localStorage.setItem("availableMaterials", JSON.stringify(availableMaterials));
-            updateMaterialList();
-        }
-
-        function updateMaterialList() {
-            let list = document.getElementById("availableMaterials");
-            list.innerHTML = "";
-            for (let mat in availableMaterials) {
-                let li = document.createElement("li");
-                li.innerHTML = `${mat} (${availableMaterials[mat]}) <button onclick='removeMaterial("${mat}")'>Löschen</button>`;
-                list.appendChild(li);
-            }
-            let select = document.getElementById("materialSelect");
-            select.innerHTML = "<option value=''>Material auswählen</option>";
-            for (let mat in availableMaterials) {
-                let option = document.createElement("option");
-                option.value = mat;
-                option.textContent = `${mat} (${availableMaterials[mat]})`;
-                select.appendChild(option);
-            }
         }
 
         function requestItem() {
@@ -100,23 +82,66 @@
             let loanDate = document.getElementById("loanDate").value;
             let returnDate = document.getElementById("returnDate").value;
             
-            if (!material || quantity < 1 || !borrower || !loanDate || !returnDate) return;
-            
-            if (availableMaterials[material] >= quantity) {
-                availableMaterials[material] -= quantity;
-                if (availableMaterials[material] === 0) {
-                    delete availableMaterials[material];
-                }
-                loanedItems.push({ material, quantity, borrower, loanDate, returnDate });
-                localStorage.setItem("availableMaterials", JSON.stringify(availableMaterials));
-                localStorage.setItem("loanedItems", JSON.stringify(loanedItems));
-                updateMaterialList();
+            if (!material || !borrower || quantity < 1 || !loanDate || !returnDate) {
+                alert("Bitte alle Felder ausfüllen.");
+                return;
+            }
+
+            if (availableMaterials[material] < quantity) {
+                alert("Nicht genügend Material verfügbar.");
+                return;
+            }
+
+            availableMaterials[material] -= quantity;
+            let existingLoan = loanedItems.find(item => item.material === material && item.borrower === borrower && item.loanDate === loanDate && item.returnDate === returnDate);
+            if (existingLoan) {
+                existingLoan.quantity += quantity;
             } else {
-                alert("Nicht genügend Material verfügbar");
+                loanedItems.push({ material, quantity, borrower, loanDate, returnDate });
+            }
+            saveData();
+            updateMaterialList();
+            updateLoanedList();
+        }
+
+        function returnItem(index) {
+            let item = loanedItems[index];
+            availableMaterials[item.material] = (availableMaterials[item.material] || 0) + item.quantity;
+            loanedItems.splice(index, 1);
+            saveData();
+            updateMaterialList();
+            updateLoanedList();
+        }
+
+        function updateLoanedList() {
+            let table = document.getElementById("loanedTable");
+            table.innerHTML = "<tr><th>Menge</th><th>Material</th><th>Entleiher</th><th>Ausleihe</th><th>Rückgabe</th>" + (isAdmin ? "<th>Aktion</th>" : "") + "</tr>";
+            loanedItems.forEach((item, index) => {
+                let row = table.insertRow();
+                row.innerHTML = `<td>${item.quantity}</td><td>${item.material}</td><td>${item.borrower}</td><td>${item.loanDate}</td><td>${item.returnDate}</td>` + (isAdmin ? `<td><button onclick="returnItem(${index})">Zurückgeben</button></td>` : "");
+            });
+        }
+
+        function updateMaterialList() {
+            let list = document.getElementById("availableMaterials");
+            let publicList = document.getElementById("publicAvailableMaterials");
+            let materialSelect = document.getElementById("materialSelect");
+            
+            list.innerHTML = "";
+            publicList.innerHTML = "";
+            materialSelect.innerHTML = "<option value=\"\" disabled selected>Wähle ein Material</option>";
+            
+            for (let mat in availableMaterials) {
+                let li = document.createElement("li");
+                li.innerHTML = `${availableMaterials[mat]}x ${mat}`;
+                list.appendChild(li);
+                publicList.appendChild(li.cloneNode(true));
+                materialSelect.appendChild(new Option(`${availableMaterials[mat]}x ${mat}`, mat));
             }
         }
 
         updateMaterialList();
+        updateLoanedList();
     </script>
 </body>
 </html>
