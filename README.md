@@ -3,6 +3,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Materialverwaltung</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; background-color: white; color: black; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -42,40 +43,27 @@
     <table id="loanedTable"></table>
 
     <script>
+        const supabaseUrl = "https://your-supabase-url.supabase.co";
+        const supabaseKey = "your-anon-key";
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
         let isAdmin = false;
-        let availableMaterials = JSON.parse(localStorage.getItem('availableMaterials')) || {};
-        let loanedItems = JSON.parse(localStorage.getItem('loanedItems')) || [];
 
-        function saveData() {
-            localStorage.setItem('availableMaterials', JSON.stringify(availableMaterials));
-            localStorage.setItem('loanedItems', JSON.stringify(loanedItems));
+        async function fetchMaterials() {
+            let { data, error } = await supabase.from("materials").select("*");
+            if (error) console.error(error);
+            else renderMaterials(data);
         }
 
-        function toggleLogin() {
-            document.getElementById("adminLogin").classList.toggle("hidden");
-        }
-
-        function handleLogin() {
-            let password = document.getElementById("adminPassword").value;
-            if (password === "SCP07!") {
-                isAdmin = true;
-                document.getElementById("adminPanel").classList.remove("hidden");
-                updateLoanedList();
-            } else {
-                alert("Falsches Passwort");
-            }
-        }
-
-        function addMaterial() {
+        async function addMaterial() {
             let material = document.getElementById("newMaterial").value;
             let quantity = parseInt(document.getElementById("materialQuantity").value);
             if (!material || quantity < 1) return;
-            availableMaterials[material] = (availableMaterials[material] || 0) + quantity;
-            saveData();
-            updateMaterialList();
+            let { error } = await supabase.from("materials").insert([{ name: material, quantity }]);
+            if (error) console.error(error);
+            fetchMaterials();
         }
 
-        function requestItem() {
+        async function requestItem() {
             let material = document.getElementById("materialSelect").value;
             let quantity = parseInt(document.getElementById("borrowQuantity").value);
             let borrower = document.getElementById("borrower").value;
@@ -86,62 +74,51 @@
                 alert("Bitte alle Felder ausfüllen.");
                 return;
             }
-
-            if (availableMaterials[material] < quantity) {
-                alert("Nicht genügend Material verfügbar.");
-                return;
-            }
-
-            availableMaterials[material] -= quantity;
-            let existingLoan = loanedItems.find(item => item.material === material && item.borrower === borrower && item.loanDate === loanDate && item.returnDate === returnDate);
-            if (existingLoan) {
-                existingLoan.quantity += quantity;
-            } else {
-                loanedItems.push({ material, quantity, borrower, loanDate, returnDate });
-            }
-            saveData();
-            updateMaterialList();
-            updateLoanedList();
+            
+            let { error } = await supabase.from("loans").insert([{ material, quantity, borrower, loanDate, returnDate }]);
+            if (error) console.error(error);
+            fetchMaterials();
         }
 
-        function returnItem(index) {
-            let item = loanedItems[index];
-            availableMaterials[item.material] = (availableMaterials[item.material] || 0) + item.quantity;
-            loanedItems.splice(index, 1);
-            saveData();
-            updateMaterialList();
-            updateLoanedList();
+        async function returnItem(id) {
+            let { error } = await supabase.from("loans").delete().eq("id", id);
+            if (error) console.error(error);
+            fetchMaterials();
         }
 
-        function updateLoanedList() {
-            let table = document.getElementById("loanedTable");
-            table.innerHTML = "<tr><th>Menge</th><th>Material</th><th>Entleiher</th><th>Ausleihe</th><th>Rückgabe</th>" + (isAdmin ? "<th>Aktion</th>" : "") + "</tr>";
-            loanedItems.forEach((item, index) => {
-                let row = table.insertRow();
-                row.innerHTML = `<td>${item.quantity}</td><td>${item.material}</td><td>${item.borrower}</td><td>${item.loanDate}</td><td>${item.returnDate}</td>` + (isAdmin ? `<td><button onclick="returnItem(${index})">Zurückgeben</button></td>` : "");
-            });
-        }
-
-        function updateMaterialList() {
+        function renderMaterials(data) {
             let list = document.getElementById("availableMaterials");
             let publicList = document.getElementById("publicAvailableMaterials");
             let materialSelect = document.getElementById("materialSelect");
-            
             list.innerHTML = "";
             publicList.innerHTML = "";
-            materialSelect.innerHTML = "<option value=\"\" disabled selected>Wähle ein Material</option>";
-            
-            for (let mat in availableMaterials) {
+            materialSelect.innerHTML = "<option value='' disabled selected>Wähle ein Material</option>";
+            data.forEach(item => {
                 let li = document.createElement("li");
-                li.innerHTML = `${availableMaterials[mat]}x ${mat}`;
+                li.innerHTML = `${item.quantity}x ${item.name}`;
                 list.appendChild(li);
                 publicList.appendChild(li.cloneNode(true));
-                materialSelect.appendChild(new Option(`${availableMaterials[mat]}x ${mat}`, mat));
-            }
+                materialSelect.appendChild(new Option(`${item.quantity}x ${item.name}`, item.name));
+            });
         }
 
-        updateMaterialList();
-        updateLoanedList();
+        async function fetchLoans() {
+            let { data, error } = await supabase.from("loans").select("*");
+            if (error) console.error(error);
+            else renderLoans(data);
+        }
+
+        function renderLoans(data) {
+            let table = document.getElementById("loanedTable");
+            table.innerHTML = "<tr><th>Menge</th><th>Material</th><th>Entleiher</th><th>Ausleihe</th><th>Rückgabe</th>" + (isAdmin ? "<th>Aktion</th>" : "") + "</tr>";
+            data.forEach(item => {
+                let row = table.insertRow();
+                row.innerHTML = `<td>${item.quantity}</td><td>${item.material}</td><td>${item.borrower}</td><td>${item.loanDate}</td><td>${item.returnDate}</td>` + (isAdmin ? `<td><button onclick="returnItem(${item.id})">Zurückgeben</button></td>` : "");
+            });
+        }
+
+        fetchMaterials();
+        fetchLoans();
     </script>
 </body>
 </html>
