@@ -74,6 +74,7 @@
             }
             await supabase.from("loans").insert([{ material, quantity, borrower, loanDate, returnDate }]);
             fetchMaterials();
+            fetchLoanedItems();
         }
 
         async function fetchLoanedItems() {
@@ -83,7 +84,9 @@
         }
 
         async function returnItem(id) {
+            let { data } = await supabase.from("loans").select("*").eq("id", id).single();
             await supabase.from("loans").delete().match({ id: id });
+            await supabase.from("materials").update({ quantity: supabase.raw("quantity + ?", [data.quantity]) }).eq("name", data.material);
             fetchLoanedItems();
             fetchMaterials();
         }
@@ -98,7 +101,7 @@
                 let li = document.createElement("li");
                 li.innerHTML = `${mat.quantity}x ${mat.name}`;
                 list.appendChild(li);
-                materialSelect.appendChild(new Option(`${mat.quantity}x ${mat.name}`, mat.name));
+                materialSelect.appendChild(new Option(`${mat.name} (${mat.quantity} verfügbar)`, mat.name));
             });
         }
 
