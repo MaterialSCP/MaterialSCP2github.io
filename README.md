@@ -60,6 +60,7 @@
             if (password === "SCP07!") {
                 isAdmin = true;
                 document.getElementById("adminPanel").classList.remove("hidden");
+                updateMaterialList();
                 updateLoanedList();
             } else {
                 alert("Falsches Passwort");
@@ -81,33 +82,28 @@
             updateMaterialList();
         }
 
-        function requestItem() {
-            let material = document.getElementById("materialSelect").value;
-            let quantity = parseInt(document.getElementById("borrowQuantity").value);
-            let borrower = document.getElementById("borrower").value;
-            let loanDate = document.getElementById("loanDate").value;
-            let returnDate = document.getElementById("returnDate").value;
-            
-            if (!material || !borrower || quantity < 1 || !loanDate || !returnDate) {
-                alert("Bitte alle Felder ausfüllen.");
-                return;
-            }
-
-            if (availableMaterials[material] < quantity) {
-                alert("Nicht genügend Material verfügbar.");
-                return;
-            }
-
-            availableMaterials[material] -= quantity;
-            let existingLoan = loanedItems.find(item => item.material === material && item.borrower === borrower && item.loanDate === loanDate && item.returnDate === returnDate);
-            if (existingLoan) {
-                existingLoan.quantity += quantity;
-            } else {
-                loanedItems.push({ material, quantity, borrower, loanDate, returnDate });
-            }
+        function returnItem(index) {
+            let item = loanedItems.splice(index, 1)[0];
+            availableMaterials[item.material] = (availableMaterials[item.material] || 0) + item.quantity;
             saveData();
             updateMaterialList();
             updateLoanedList();
+        }
+
+        function updateLoanedList() {
+            let table = document.getElementById("loanedTable");
+            table.innerHTML = "<tr><th>Material</th><th>Menge</th><th>Entleiher</th><th>Ausleihe</th><th>Rückgabe</th>" + (isAdmin ? "<th>Aktion</th>" : "") + "</tr>";
+            loanedItems.forEach((item, index) => {
+                let row = table.insertRow();
+                row.innerHTML = `<td>${item.material}</td><td>${item.quantity}</td><td>${item.borrower}</td><td>${item.loanDate}</td><td>${item.returnDate}</td>`;
+                if (isAdmin) {
+                    let actionCell = row.insertCell();
+                    let returnBtn = document.createElement("button");
+                    returnBtn.textContent = "Zurückgeben";
+                    returnBtn.onclick = () => returnItem(index);
+                    actionCell.appendChild(returnBtn);
+                }
+            });
         }
 
         function updateMaterialList() {
