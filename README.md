@@ -43,8 +43,8 @@
 
     <script>
         let isAdmin = false;
-        let availableMaterials = JSON.parse(localStorage.getItem('availableMaterials')) || {};
-        let loanedItems = JSON.parse(localStorage.getItem('loanedItems')) || [];
+        let availableMaterials = JSON.parse(localStorage.getItem('availableMaterials') || '{}');
+        let loanedItems = JSON.parse(localStorage.getItem('loanedItems') || '[]');
 
         function saveData() {
             localStorage.setItem('availableMaterials', JSON.stringify(availableMaterials));
