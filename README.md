@@ -75,6 +75,12 @@
             updateMaterialList();
         }
 
+        function deleteMaterial(material) {
+            delete availableMaterials[material];
+            saveData();
+            updateMaterialList();
+        }
+
         function requestItem() {
             let material = document.getElementById("materialSelect").value;
             let quantity = parseInt(document.getElementById("borrowQuantity").value);
@@ -104,24 +110,6 @@
             updateLoanedList();
         }
 
-        function returnItem(index) {
-            let item = loanedItems[index];
-            availableMaterials[item.material] = (availableMaterials[item.material] || 0) + item.quantity;
-            loanedItems.splice(index, 1);
-            saveData();
-            updateMaterialList();
-            updateLoanedList();
-        }
-
-        function updateLoanedList() {
-            let table = document.getElementById("loanedTable");
-            table.innerHTML = `<tr><th>Menge</th><th>Material</th><th>Entleiher</th><th>Ausleihe</th><th>Rückgabe</th>${isAdmin ? '<th>Aktion</th>' : ''}</tr>`;
-            loanedItems.forEach((item, index) => {
-                let row = table.insertRow();
-                row.innerHTML = `<td>${item.quantity}</td><td>${item.material}</td><td>${item.borrower}</td><td>${item.loanDate}</td><td>${item.returnDate}</td>${isAdmin ? `<td><button onclick="returnItem(${index})">Zurückgeben</button></td>` : ''}`;
-            });
-        }
-
         function updateMaterialList() {
             let list = document.getElementById("availableMaterials");
             let publicList = document.getElementById("publicAvailableMaterials");
@@ -134,6 +122,12 @@
             for (let mat in availableMaterials) {
                 let li = document.createElement("li");
                 li.innerHTML = `${availableMaterials[mat]}x ${mat}`;
+                if (isAdmin) {
+                    let deleteBtn = document.createElement("button");
+                    deleteBtn.textContent = "Löschen";
+                    deleteBtn.onclick = () => deleteMaterial(mat);
+                    li.appendChild(deleteBtn);
+                }
                 list.appendChild(li);
                 publicList.appendChild(li.cloneNode(true));
                 materialSelect.appendChild(new Option(`${availableMaterials[mat]}x ${mat}`, mat));
