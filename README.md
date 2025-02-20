@@ -29,9 +29,7 @@
     <h2>Verfügbare Materialien</h2>
     <ul id="availableMaterials" style="list-style-type: none;"></ul>
     <h2>Materialanfrage</h2>
-    <select id="materialSelect">
-        <option value="" disabled selected>Wähle ein Material</option>
-    </select>
+    <select id="materialSelect"></select>
     <input type="number" id="borrowQuantity" placeholder="Menge" min="1" value="1">
     <input type="text" id="borrower" placeholder="Entleiher">
     <input type="date" id="loanDate">
@@ -41,8 +39,8 @@
     <table id="loanedTable"></table>
 
     <script>
-        const supabaseUrl = "https://xyzcompany.supabase.co";  // Ersetze durch deine Supabase-URL
-        const supabaseKey = "public-anon-key";  // Ersetze durch deinen API-Schlüssel
+        const supabaseUrl = "https://xyzcompany.supabase.co";
+        const supabaseKey = "public-anon-key";
         const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
         let isAdmin = false;
@@ -67,14 +65,10 @@
             let borrower = document.getElementById("borrower").value;
             let loanDate = document.getElementById("loanDate").value;
             let returnDate = document.getElementById("returnDate").value;
-            
-            if (!material || !borrower || quantity < 1 || !loanDate || !returnDate) {
-                alert("Bitte alle Felder ausfüllen.");
-                return;
-            }
+            if (!material || !borrower || quantity < 1 || !loanDate || !returnDate) return;
             await supabase.from("loans").insert([{ material, quantity, borrower, loanDate, returnDate }]);
-            fetchMaterials();
             fetchLoanedItems();
+            fetchMaterials();
         }
 
         async function fetchLoanedItems() {
@@ -84,9 +78,7 @@
         }
 
         async function returnItem(id) {
-            let { data } = await supabase.from("loans").select("*").eq("id", id).single();
             await supabase.from("loans").delete().match({ id: id });
-            await supabase.from("materials").update({ quantity: supabase.raw("quantity + ?", [data.quantity]) }).eq("name", data.material);
             fetchLoanedItems();
             fetchMaterials();
         }
@@ -95,13 +87,12 @@
             let list = document.getElementById("availableMaterials");
             let materialSelect = document.getElementById("materialSelect");
             list.innerHTML = "";
-            materialSelect.innerHTML = "<option value=\"\" disabled selected>Wähle ein Material</option>";
-            
+            materialSelect.innerHTML = "<option value='' disabled selected>Wähle ein Material</option>";
             materials.forEach(mat => {
                 let li = document.createElement("li");
                 li.innerHTML = `${mat.quantity}x ${mat.name}`;
                 list.appendChild(li);
-                materialSelect.appendChild(new Option(`${mat.name} (${mat.quantity} verfügbar)`, mat.name));
+                materialSelect.appendChild(new Option(`${mat.quantity}x ${mat.name}`, mat.name));
             });
         }
 
